@@ -1,0 +1,77 @@
+version: '3.8'
+
+x-flask: &flask
+  build:
+    context: .
+    dockerfile: ./docker/flask/Dockerfile
+    args:
+      ENVIRONMENT: production  # Add build argument
+  restart: always
+  image: "${COMPOSE_IMAGES_PREFIX}_prod"
+  depends_on:
+    - postgres
+    - redis
+  volumes:
+    - ./src:/opt/project/src:cached
+    - venv_data:/opt/project/src/.venv  # Add venv volume
+    - ./data/prod:/data:z
+  env_file:
+    - ./.env
+
+services:
+  flask:
+    <<: *flask
+    command: prod
+    entrypoint: /entrypoint prod  # Add explicit entrypoint
+  celeryworker:
+    <<: *flask
+    command: celery worker -l INFO
+  celerybeat:
+    <<: *flask
+    command: celery beat -l INFO
+  flower:
+    image: mher/flower:0.9.7
+    command: "flower --broker=${REDIS_URL} --port=5555 --url-prefix=flower --basic_auth=${CELERY_FLOWER_USER}:${CELERY_FLOWER_PASSWORD}"
+    depends_on:
+      - redis
+    env_file:
+      - ./.env
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/postgres/Dockerfile
+    image: "${COMPOSE_IMAGES_PREFIX}_prod_postgres"
+    restart: always
+    volumes:
+      - prod_postgres:/var/lib/postgresql/data:Z
+      - prod_backups:/backups:z
+    env_file:
+      - ./.env
+  redis:
+    image: redis:6.0
+    restart: always
+    volumes:
+      - prod_redis:/data
+  caddy:
+    build:
+      context: .
+      dockerfile: ./docker/caddy/Dockerfile
+    image: "${COMPOSE_IMAGES_PREFIX}_prod_caddy"
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:80:80"
+      - "0.0.0.0:443:443"
+    volumes:
+      - prod_caddy:/data
+    env_file:
+      - ./.env
+    depends_on:
+      - flask
+      - flower
+
+volumes:
+  prod_postgres:
+  prod_backups:
+  prod_redis:
+  prod_caddy:
+  venv_data:  # Add venv volume definition

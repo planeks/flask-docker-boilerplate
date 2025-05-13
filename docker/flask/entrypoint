@@ -1,0 +1,108 @@
+#!/bin/bash
+
+set -o errexit
+set -o pipefail
+set -o nounset
+
+PORT="${APP_PORT:-8000}"
+
+echo "Checking the necessary directories..."
+# mkdir -p /data/staticfiles
+# mkdir -p /data/media
+
+if [ -z "${POSTGRES_USER}" ]; then
+    base_postgres_image_default_user='postgres'
+    export POSTGRES_USER="${base_postgres_image_default_user}"
+fi
+
+exitFunc() {
+  echo 'Exiting...'
+  exit -1
+}
+
+postgres_ready() {
+poetry run python << END
+import sys
+import psycopg2
+try:
+    psycopg2.connect(
+        dbname="${POSTGRES_DB}",
+        user="${POSTGRES_USER}",
+        password="${POSTGRES_PASSWORD}",
+        host="${POSTGRES_HOST}",
+        port="${POSTGRES_PORT}",
+    )
+except psycopg2.OperationalError:
+    sys.exit(-1)
+sys.exit(0)
+END
+}
+
+wait_for_postgres() {
+count=0
+trap exitFunc INT
+echo "Checking the PostgreSQL connection"
+until postgres_ready; do
+  count=$((count+1))
+  if [ $count -eq 10 ]; then
+      >&2 echo 'A waiting time has been reached. Exiting...'
+      exit -1
+  fi
+  >&2 echo 'Waiting for PostgreSQL to become available...'
+  sleep 2
+done
+>&2 echo 'PostgreSQL is available'
+}
+
+show_help() {
+    echo """
+Usage: docker-compose -f <yaml-file> run <service> COMMAND
+Commands
+prod     : Start flask using a prod ready gunicorn server
+dev       : Start a normal Flask development server
+bash      : Start a bash shell
+python    : Run a python command
+pip-compile: Run pip-compile
+celery    : Run celery
+celery-dev: Run a hot-reloading dev version of celery
+help      : Show this message
+"""
+}
+
+case "$1" in
+    dev)
+        wait_for_postgres
+        exec poetry run flask --app app:server run --host=0.0.0.0 --debug --port="${PORT}"
+    ;;
+    prod)
+        wait_for_postgres
+        exec poetry run gunicorn app:server -b 0.0.0.0:"$PORT" --reload --chdir=/opt/project/src
+    ;;
+    bash)
+        exec /bin/bash "${@:2}"
+    ;;
+    python)
+        exec poetry run python "${@:2}"
+    ;;
+    pip-compile)
+        exec poetry run pip-compile requirements.in
+    ;;
+    celery)
+        wait_for_postgres
+        exec poetry run celery -A app.celery_app "${@:2}"
+    ;;
+    celery-dev)
+        wait_for_postgres
+        if [ "$2" = "worker" ]; then
+            exec poetry run watchgod celery.__main__.main --args -A app.celery_app worker "${@:3}"
+        elif [ "$2" = "beat" ]; then
+            exec poetry run watchgod celery.__main__.main --args -A app.celery_app beat "${@:3}"
+        else
+            exec poetry run watchgod celery.__main__.main --args -A app.celery_app "${@:2}"
+        fi
+    ;;
+    *)
+        show_help
+        exit 1
+    ;;
+esac

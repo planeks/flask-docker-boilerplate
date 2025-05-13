@@ -1,0 +1,97 @@
+x-flask: &flask
+  build:
+    context: .
+    dockerfile: ./docker/flask/Dockerfile
+    args:
+      ENVIRONMENT: development  # Pass the build argument
+  image:  "${COMPOSE_PROJECT_NAME}_dev"
+  depends_on:
+    - postgres
+    - redis
+    - mailhog
+  volumes:
+    - ./src:/opt/project/src:cached
+    - venv_data:/opt/project/src/.venv
+    - ./data/dev:/data:z
+  env_file:
+    - ./.env
+
+services:
+  flask:
+    <<: *flask
+    ports:
+      - "8000:8000"
+    command: dev
+    entrypoint: /entrypoint dev
+  celeryworker:
+    <<: *flask
+    command: celery-dev worker -l INFO
+  celerybeat:
+    <<: *flask
+    command: celery-dev beat -l INFO
+  flower:
+    image: mher/flower:0.9.7
+    command: "flower --broker=${REDIS_URL} --port=5555 --url-prefix=flower"
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    env_file:
+      - ./.env
+  redis:
+    image: redis:6.0
+    volumes:
+      - dev_redis:/data
+  postgres:
+    build:
+      context: .
+      dockerfile: ./docker/postgres/Dockerfile
+    image: "${COMPOSE_PROJECT_NAME}_dev_postgres"
+    volumes:
+      - ./data/dev_postgres:/var/lib/postgresql/data:Z
+      - ./data/dev_backups:/backups:z
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env
+  mailhog:
+    image: mailhog/mailhog
+    logging:
+      driver: 'none'  # disable saving logs
+    ports:
+      - "8025:8025" # web ui
+  mkdocs:
+    build:
+      context: .
+      dockerfile: ./docker/mkdocs/Dockerfile
+    image: "${COMPOSE_PROJECT_NAME}_dev_mkdocs"
+    command: serve
+    volumes:
+      - ./docs:/docs:cached
+      - ./data/dev_mkdocs:/data:z
+      - ./src:/code/src:cached
+    ports:
+      - "8050:8000"
+    env_file:
+      - ./.env
+# Uncomment if you need Caddy locally
+#  caddy:
+#    build:
+#      context: .
+#      dockerfile: ./docker/caddy/Dockerfile
+#    image: "${COMPOSE_PROJECT_NAME}_dev_caddy"
+#    ports:
+#      - "80:80"
+#      - "443:443"
+#    volumes:
+#      - dev_caddy:/data
+#    env_file:
+#      - ./.env
+#    depends_on:
+#      - flask
+#      - flower
+
+volumes:
+  dev_redis:
+  dev_caddy:
+  venv_data:
