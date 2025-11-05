@@ -1,0 +1,23 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [staging]
+  workflow_dispatch:
+
+jobs:
+  test:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: [test]
+    uses: ./.github/workflows/deploy-reusable.yml
+    with:
+      environment: staging
+      branch: staging
+      compose-file: compose.prod.yml
+      project-path: ~/projects/flask-docker-boilerplate
+      health-check-url: ${{ vars.STAGING_HEALTH_URL || '' }}
+    secrets:
+      host: ${{ secrets.STAGING_HOST }}
+      ssh-key: ${{ secrets.STAGING_SSH_KEY }}
