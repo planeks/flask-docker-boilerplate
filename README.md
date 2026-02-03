@@ -13,12 +13,11 @@ You can download the ZIP archive and unpack it to the directory, or clone the re
 
 Use the global find and replace for changing the string `NEWPROJECTNAME` in the files in the `src` directory to the proper project name. The easiest way to do it just use `Replace` feature in the IDE.
 
-There are three files where the changes should be done:
+There are two files where the changes should be done:
 
 ```
-src/config/settings.py
-src/config/templates/index.html
-src/config/urls.py
+src/config.py
+src/app.py
 ```
 
 ## 🐳 Install Docker and Docker Compose
@@ -142,7 +141,7 @@ of PyCharm.
 Go to `Preferences` -> `Project` -> `Python Interpreter`. Click the gear icon
 and select the `Add...` item.
 
-Select `Docker Compose` and specify your configuration file (`local.yml`) and
+Select `Docker Compose` and specify your configuration file (`compose.dev.yml`) and
 the particular service.
 
 ![Add Python Interpreter](docs/readme_images/add-remote-interpreter.jpg)
@@ -166,7 +165,7 @@ You can use the standard `Flask Server` configuration to run `runserver`
 Specify the proper Python Interpreter and set `Host` option to `0.0.0.0`.
 It is necessary, because the application server is running inside the container.
 
-![Flask Run Configuration](docs/readme_images/django-run-configuration.jpg)
+![Flask Run Configuration](docs/readme_images/flask-run-configuration.jpg)
 
 You can use `Python` configuration template to run Celery. Do not forget to
 set the proper remote interpreter and working directory. Also, set the following options:
@@ -359,7 +358,7 @@ PYTHONENCODING=utf8
 COMPOSE_IMAGES_PREFIX=newprojectname
 DEBUG=0
 CONFIGURATION=prod
-DJANGO_LOG_LEVEL=INFO
+FLASK_LOG_LEVEL=INFO
 SECRET_KEY="<secret_key>"
 ALLOWED_HOSTS=example.com
 POSTGRES_HOST=postgres
@@ -460,10 +459,10 @@ Copy the database dump to the `backups` directory:
 $ docker cp <dump_name> newprojectname_postgres_1:/backups/
 ```
 
-Stop the app containers that are using the database (`django`, `celeryworker`, etc.)
+Stop the app containers that are using the database (`flask`, `celeryworker`, etc.)
 
 ```bash
-$ docker compose -f compose.prod.yml stop django celeryworker
+$ docker compose -f compose.prod.yml stop flask celeryworker
 ``` 
 
 Restore the database:
@@ -475,7 +474,7 @@ $ docker compose -f compose.prod.yml exec -T postgres restore <dump_name>
 Run the app containers again:
 
 ```bash
-$ docker compose -f compose.prod.yml up -d django celeryworker
+$ docker compose -f compose.prod.yml up -d flask celeryworker
 ```
 
 ## Cleaning Docker data
@@ -496,7 +495,7 @@ Add the next lines
 
 ## Overview
 
-This guide will help you set up GitHub Actions workflows for a Django/React application with three environments: Development, Staging, and Production.
+This guide will help you set up GitHub Actions workflows for a Flask application with three environments: Development, Staging, and Production.
 
 ## Create Workflow Files
 

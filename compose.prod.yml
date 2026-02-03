@@ -13,7 +13,6 @@ x-flask: &flask
     - redis
   volumes:
     - ./src:/opt/project/src:cached
-    - venv_data:/opt/project/src/.venv  # Add venv volume
     - ./data/prod:/data:z
   env_file:
     - ./.env
@@ -22,7 +21,6 @@ services:
   flask:
     <<: *flask
     command: prod
-    entrypoint: /entrypoint prod  # Add explicit entrypoint
   celeryworker:
     <<: *flask
     command: celery worker -l INFO
@@ -74,4 +72,3 @@ volumes:
   prod_backups:
   prod_redis:
   prod_caddy:
-  venv_data:  # Add venv volume definition
