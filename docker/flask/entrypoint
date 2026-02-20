@@ -81,14 +81,14 @@ help      : Show this message
 case "$1" in
     dev)
         wait_for_postgres
-        if [ -d "migrations" ]; then
+        if [ -d "/opt/project/src/migrations/versions" ]; then
             gosu appuser poetry run flask --app app:server db upgrade
         fi
         exec gosu appuser poetry run flask --app app:server run --host=0.0.0.0 --debug --port="${PORT}"
     ;;
     prod)
         wait_for_postgres
-        if [ -d "migrations" ]; then
+        if [ -d "/opt/project/src/migrations/versions" ]; then
             gosu appuser poetry run flask --app app:server db upgrade
         fi
         exec gosu appuser poetry run gunicorn app:server -b 0.0.0.0:"$PORT" --chdir=/opt/project/src
