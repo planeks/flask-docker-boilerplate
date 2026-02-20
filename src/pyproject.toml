@@ -86,8 +86,8 @@ ignore = [
     "S107",    # hardcoded-password-default
     "S105",    # hardcoded-password-string
     "N802",    # invalid-function-name
-    "TCH001",  # typing-only-first-party-import
-    "TCH002",  # typing-only-third-party-import
+    "TC001",   # typing-only-first-party-import
+    "TC002",   # typing-only-third-party-import
     "PTH",     # flake8-use-pathlib (not enforced globally)
     "RUF012",  # mutable-class-default
     "ERA001",  # commented-out-code (temporary)

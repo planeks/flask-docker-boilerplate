@@ -1,4 +1,4 @@
-from celery import Task, Celery
+from celery import Celery, Task
 
 
 def init_celery(flask_app) -> Celery:
@@ -15,6 +15,6 @@ def init_celery(flask_app) -> Celery:
         task_ignore_result=True,
     )
     celery_app.set_default()
-    celery_app.conf.timezone = 'Europe/Kyiv'
+    celery_app.conf.timezone = "Europe/Kyiv"
     celery_app.autodiscover_tasks(packages=[])
     return celery_app
