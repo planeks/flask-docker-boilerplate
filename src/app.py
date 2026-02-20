@@ -1,3 +1,5 @@
+import os
+
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -6,12 +8,15 @@ from celery_app import init_celery
 
 server = Flask(__name__)
 
-server.config.from_object(configuration.DevConfig)
+config_name = os.environ.get("CONFIGURATION", "dev")
+server.config.from_object(configuration.ENV_CONFIG_MAP[config_name])
 
 db = SQLAlchemy()
+db.init_app(server)
+
 celery_app = init_celery(server)
 server.extensions["celery"] = celery_app
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     server.run(debug=True)

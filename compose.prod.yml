@@ -1,31 +1,40 @@
-version: '3.8'
-
-x-flask: &flask
-  build:
-    context: .
-    dockerfile: ./docker/flask/Dockerfile
-    args:
-      ENVIRONMENT: production  # Add build argument
+x-flask-common: &flask-common
   restart: always
-  image: "${COMPOSE_IMAGES_PREFIX}_prod"
+  image: "${COMPOSE_PROJECT_NAME}_prod"
   depends_on:
     - postgres
     - redis
   volumes:
-    - ./src:/opt/project/src:cached
     - ./data/prod:/data:z
   env_file:
     - ./.env
+  logging:
+    driver: journald
+    options:
+      tag: "{{.Name}}"
 
 services:
   flask:
-    <<: *flask
+    <<: *flask-common
+    build:
+      context: .
+      dockerfile: ./docker/flask/Dockerfile
+      args:
+        ENVIRONMENT: production
     command: prod
   celeryworker:
-    <<: *flask
+    <<: *flask-common
+    depends_on:
+      - flask
+      - postgres
+      - redis
     command: celery worker -l INFO
   celerybeat:
-    <<: *flask
+    <<: *flask-common
+    depends_on:
+      - flask
+      - postgres
+      - redis
     command: celery beat -l INFO
   flower:
     image: mher/flower:0.9.7
@@ -34,41 +43,80 @@ services:
       - redis
     env_file:
       - ./.env
+    logging:
+      driver: journald
+      options:
+        tag: "{{.Name}}"
   postgres:
     build:
       context: .
       dockerfile: ./docker/postgres/Dockerfile
-    image: "${COMPOSE_IMAGES_PREFIX}_prod_postgres"
+    image: "${COMPOSE_PROJECT_NAME}_prod_postgres"
     restart: always
     volumes:
       - prod_postgres:/var/lib/postgresql/data:Z
       - prod_backups:/backups:z
     env_file:
       - ./.env
+    logging:
+      driver: journald
+      options:
+        tag: "{{.Name}}"
   redis:
     image: redis:6.0
     restart: always
     volumes:
       - prod_redis:/data
+    logging:
+      driver: journald
+      options:
+        tag: "{{.Name}}"
+  mkdocs:
+    build:
+      dockerfile: ./docker/mkdocs/Dockerfile
+      context: ./
+    env_file:
+      - .env
+    image: ${COMPOSE_PROJECT_NAME}/docs
+    container_name: ${COMPOSE_PROJECT_NAME}-docs-prod
+    command:
+      - build
+    volumes:
+      - ./docs:/docs
+      - docs:/data
+    logging:
+      driver: journald
+      options:
+        tag: "{{.Name}}"
   caddy:
     build:
       context: .
       dockerfile: ./docker/caddy/Dockerfile
-    image: "${COMPOSE_IMAGES_PREFIX}_prod_caddy"
+    image: "${COMPOSE_PROJECT_NAME}_prod_caddy"
     restart: unless-stopped
     ports:
       - "0.0.0.0:80:80"
       - "0.0.0.0:443:443"
     volumes:
       - prod_caddy:/data
+      - docs:/docs
+      - caddy_config:/config
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+      - /var/log/caddy:/var/log/caddy
     env_file:
       - ./.env
     depends_on:
       - flask
       - flower
+    logging:
+      driver: journald
+      options:
+        tag: "{{.Name}}"
 
 volumes:
   prod_postgres:
   prod_backups:
-  prod_redis:
   prod_caddy:
+  prod_redis:
+  caddy_config:
+  docs:

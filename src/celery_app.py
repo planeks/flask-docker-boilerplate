@@ -1,5 +1,3 @@
-from os import environ
-
 from celery import Task, Celery
 
 
@@ -12,9 +10,9 @@ def init_celery(flask_app) -> Celery:
     celery_app = Celery(
         __name__,
         task_cls=FlaskTask,
-        broker_url=environ.get("REDIS_URL"),
-        result_backend=environ.get("REDIS_URL"),
-        task_ignore_result=True
+        broker_url=flask_app.config["CELERY_BROKER_URL"],
+        result_backend=flask_app.config["CELERY_RESULT_BACKEND"],
+        task_ignore_result=True,
     )
     celery_app.set_default()
     celery_app.conf.timezone = 'Europe/Kyiv'

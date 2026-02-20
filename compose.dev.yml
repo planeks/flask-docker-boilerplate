@@ -1,33 +1,48 @@
-x-flask: &flask
-  build:
-    context: .
-    dockerfile: ./docker/flask/Dockerfile
-    args:
-      ENVIRONMENT: development  # Pass the build argument
-  image:  "${COMPOSE_PROJECT_NAME}_dev"
+x-flask-common: &flask-common
+  image: "${COMPOSE_PROJECT_NAME}_dev"
   depends_on:
     - postgres
     - redis
     - mailhog
   volumes:
     - ./src:/opt/project/src:cached
-    - venv_data:/opt/project/src/.venv
+    - /opt/project/src/.venv
     - ./data/dev:/data:z
   env_file:
     - ./.env
 
 services:
   flask:
-    <<: *flask
+    <<: *flask-common
+    build:
+      context: .
+      dockerfile: ./docker/flask/Dockerfile
+      args:
+        ENVIRONMENT: development
     ports:
       - "8000:8000"
     command: dev
-    entrypoint: /entrypoint dev
   celeryworker:
-    <<: *flask
+    <<: *flask-common
+    depends_on:
+      - flask
+      - postgres
+      - redis
+      - mailhog
     command: celery-dev worker -l INFO
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A app.celery_app inspect ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
   celerybeat:
-    <<: *flask
+    <<: *flask-common
+    depends_on:
+      - flask
+      - postgres
+      - redis
+      - mailhog
     command: celery-dev beat -l INFO
   flower:
     image: mher/flower:0.9.7
@@ -35,7 +50,12 @@ services:
     ports:
       - "5555:5555"
     depends_on:
-      - redis
+      celeryworker:
+        condition: service_healthy
+      celerybeat:
+        condition: service_started
+      redis:
+        condition: service_started
     env_file:
       - ./.env
   redis:
@@ -50,8 +70,6 @@ services:
     volumes:
       - ./data/dev_postgres:/var/lib/postgresql/data:Z
       - ./data/dev_backups:/backups:z
-    ports:
-      - "5432:5432"
     env_file:
       - ./.env
   mailhog:
@@ -80,11 +98,14 @@ services:
 #      context: .
 #      dockerfile: ./docker/caddy/Dockerfile
 #    image: "${COMPOSE_PROJECT_NAME}_dev_caddy"
+#    profiles: ["dev"]
 #    ports:
 #      - "80:80"
 #      - "443:443"
 #    volumes:
 #      - dev_caddy:/data
+#      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile
+#      - /var/log/caddy:/var/log/caddy
 #    env_file:
 #      - ./.env
 #    depends_on:
@@ -94,4 +115,3 @@ services:
 volumes:
   dev_redis:
   dev_caddy:
-  venv_data:

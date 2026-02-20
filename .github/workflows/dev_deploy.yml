@@ -12,8 +12,7 @@ jobs:
       environment: dev
       branch: develop
       compose-file: compose.dev.yml
-      project-path: ~/projects/flask-docker-boilerplate
-      health-check-url: ${{ vars.DEV_HEALTH_URL || '' }}
     secrets:
       host: ${{ secrets.DEV_HOST }}
       ssh-key: ${{ secrets.DEV_SSH_KEY }}
+      username: ${{ secrets.DEV_SSH_USER }}

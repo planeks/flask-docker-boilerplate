@@ -16,8 +16,7 @@ jobs:
       environment: staging
       branch: staging
       compose-file: compose.prod.yml
-      project-path: ~/projects/flask-docker-boilerplate
-      health-check-url: ${{ vars.STAGING_HEALTH_URL || '' }}
     secrets:
       host: ${{ secrets.STAGING_HOST }}
       ssh-key: ${{ secrets.STAGING_SSH_KEY }}
+      username: ${{ secrets.STAGING_SSH_USER }}

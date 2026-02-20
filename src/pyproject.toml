@@ -1,8 +1,9 @@
 [tool.poetry]
-name = "MySet"
+name = "flask-docker-boilerplate"
 version = "0.1.0"
 description = ""
 authors = ["Planeks <planeks@planeks.net>"]
+package-mode = false
 
 [tool.poetry.dependencies]
 python = "^3.12"
@@ -24,7 +25,7 @@ requests = "^2.32.3"
 sentry-sdk = {extras = ["flask"], version = "^2.27.0"}
 shortuuid = "^1.0.13"
 uvicorn = {extras = ["standard"], version = "^0.32.1"}
-watchgod = "^0.8.2"
+watchfiles = "^0.24"
 werkzeug = "^3.1.3"
 whitenoise = "^6.8.2"
 flask = "^3.1.0"
@@ -40,21 +41,8 @@ email-validator = "^2.2.0"
 [tool.poetry.group.dev.dependencies]
 freezegun = "^1.4"
 markdown-urlize = "^0.2"
-
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-
-
-
-
-
-
-
-
-
-
+pytest = "^7.4"
+ruff = "^0.6.7"
 
 [tool.poetry.group.docs.dependencies]
 mkdocs = "^1.5.3"
@@ -66,56 +54,55 @@ mkdocstrings-python = "^1.9.0"
 griffe = "^0.40.0"
 pydot = "^3.0.0"
 
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
 
-# Additional development tools
-pytest = "^7.4"
-ruff = "^0.6.7"
 [tool.ruff]
 line-length = 120
 target-version = "py312"
-# Exclude a variety of commonly ignored directories.
 exclude = [
-  "migrations",
-  "asgi.py",
+    "migrations",
 ]
-[tool.ruff.lint]
-extend-select = ["I"]
-ignore = [
-  "ANN",
-  "COM812",
-  "ISC001",
-  "D",
-  "PT009",
-  "B904",
-  "S101",
-  "ARG001",
-  "ARG002",
-  "G004",
-  "EM102",
-  "TRY003",
-  "TRY401",
-  "EM101",
-  "S311",
-  "S107",
-  "S105",
-  "N802",
-  "TCH001",
-  "TCH002",
-  "PTH",
-  "RUF012",
-  "ERA001", # temporary
-]
-select = ["ALL"]
 
-per-file-ignores = {}
-# Allow unused variables when underscore-prefixed.
+[tool.ruff.lint]
+select = ["ALL"]
+ignore = [
+    "ANN",     # flake8-annotations (type annotations not enforced)
+    "COM812",  # missing-trailing-comma (conflicts with formatter)
+    "ISC001",  # single-line-implicit-string-concatenation (conflicts with formatter)
+    "D",       # pydocstyle (docstrings not enforced globally)
+    "PT009",   # pytest-unittest-assertion
+    "B904",    # raise-without-from-inside-except
+    "S101",    # assert (used in tests)
+    "ARG001",  # unused-function-argument
+    "ARG002",  # unused-method-argument
+    "G004",    # logging-f-string
+    "EM102",   # f-string-in-exception
+    "TRY003",  # raise-vanilla-args
+    "TRY401",  # verbose-log-message
+    "EM101",   # raw-string-in-exception
+    "S311",    # suspicious-non-cryptographic-random-usage
+    "S107",    # hardcoded-password-default
+    "S105",    # hardcoded-password-string
+    "N802",    # invalid-function-name
+    "TCH001",  # typing-only-first-party-import
+    "TCH002",  # typing-only-third-party-import
+    "PTH",     # flake8-use-pathlib (not enforced globally)
+    "RUF012",  # mutable-class-default
+    "ERA001",  # commented-out-code (temporary)
+]
+extend-select = ["I"]
+pydocstyle = { convention = "google" }
+mccabe = { max-complexity = 14 }
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
-[tool.ruff.lint.mccabe]
-# Unlike Flake8, default to a complexity level of 10.
-max-complexity = 10
+
+[tool.ruff.lint.per-file-ignores]
+"config.py" = ["N802", "N815", "S105"]
+"test_*.py" = ["S101", "ARG001", "ARG002", "PLR2004"]
+"conftest.py" = ["ARG001", "ARG002"]
 
 [tool.ruff.format]
-# Like Black, use double quotes for strings.
 indent-style = "space"
 line-ending = "auto"
 quote-style = "double"
@@ -123,4 +110,3 @@ skip-magic-trailing-comma = false
 
 [tool.ruff.lint.isort]
 combine-as-imports = true
-
