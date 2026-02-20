@@ -14,7 +14,8 @@ if [ "$(id -u)" = "0" ]; then
     chmod 775 /data
     chmod g+s /data
 
-    chown -R appuser:appuser /opt/project/src/.pytest_cache 2>/dev/null || true
+    mkdir -p /opt/project/src/.pytest_cache
+    chown -R appuser:appuser /opt/project/src/.pytest_cache
 fi
 
 if [ -z "${POSTGRES_USER}" ]; then
