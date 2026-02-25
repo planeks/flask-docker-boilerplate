@@ -6,9 +6,17 @@ set -o nounset
 
 PORT="${APP_PORT:-8000}"
 
-echo "Checking the necessary directories..."
-# mkdir -p /data/staticfiles
-# mkdir -p /data/media
+# Fix permissions on mounted volumes (running as root)
+# Only fix top-level directories, not recursive — /data can grow large
+if [ "$(id -u)" = "0" ]; then
+    mkdir -p /data
+    chown appuser:appuser /data
+    chmod 775 /data
+    chmod g+s /data
+
+    mkdir -p /opt/project/src/.pytest_cache
+    chown -R appuser:appuser /opt/project/src/.pytest_cache
+fi
 
 if [ -z "${POSTGRES_USER}" ]; then
     base_postgres_image_default_user='postgres'
@@ -17,11 +25,11 @@ fi
 
 exitFunc() {
   echo 'Exiting...'
-  exit -1
+  exit 1
 }
 
 postgres_ready() {
-poetry run python << END
+gosu appuser poetry run python << END
 import sys
 import psycopg2
 try:
@@ -46,7 +54,7 @@ until postgres_ready; do
   count=$((count+1))
   if [ $count -eq 10 ]; then
       >&2 echo 'A waiting time has been reached. Exiting...'
-      exit -1
+      exit 1
   fi
   >&2 echo 'Waiting for PostgreSQL to become available...'
   sleep 2
@@ -58,13 +66,15 @@ show_help() {
     echo """
 Usage: docker-compose -f <yaml-file> run <service> COMMAND
 Commands
-prod     : Start flask using a prod ready gunicorn server
+prod      : Start flask using a prod ready gunicorn server
 dev       : Start a normal Flask development server
 bash      : Start a bash shell
+add       : Add package via Poetry
 python    : Run a python command
-pip-compile: Run pip-compile
+shell     : Start a Flask Python shell
 celery    : Run celery
 celery-dev: Run a hot-reloading dev version of celery
+test      : Run tests with pytest
 help      : Show this message
 """
 }
@@ -72,34 +82,46 @@ help      : Show this message
 case "$1" in
     dev)
         wait_for_postgres
-        exec poetry run flask --app app:server run --host=0.0.0.0 --debug --port="${PORT}"
+        if [ -d "/opt/project/src/migrations/versions" ]; then
+            gosu appuser poetry run flask --app app:server db upgrade
+        fi
+        exec gosu appuser poetry run flask --app app:server run --host=0.0.0.0 --debug --port="${PORT}"
     ;;
     prod)
         wait_for_postgres
-        exec poetry run gunicorn app:server -b 0.0.0.0:"$PORT" --reload --chdir=/opt/project/src
+        if [ -d "/opt/project/src/migrations/versions" ]; then
+            gosu appuser poetry run flask --app app:server db upgrade
+        fi
+        exec gosu appuser poetry run gunicorn app:server -b 0.0.0.0:"$PORT" --chdir=/opt/project/src
     ;;
     bash)
-        exec /bin/bash "${@:2}"
+        exec gosu appuser /bin/bash "${@:2}"
+    ;;
+    add)
+        exec gosu appuser poetry add "${@:2}"
     ;;
     python)
-        exec poetry run python "${@:2}"
+        exec gosu appuser poetry run python "${@:2}"
     ;;
-    pip-compile)
-        exec poetry run pip-compile requirements.in
+    shell)
+        exec gosu appuser poetry run flask --app app:server shell
     ;;
     celery)
         wait_for_postgres
-        exec poetry run celery -A app.celery_app "${@:2}"
+        exec gosu appuser poetry run celery -A app.celery_app "${@:2}"
     ;;
     celery-dev)
         wait_for_postgres
         if [ "$2" = "worker" ]; then
-            exec poetry run watchgod celery.__main__.main --args -A app.celery_app worker "${@:3}"
+            exec gosu appuser poetry run watchfiles celery.__main__.main --args "-A app.celery_app worker ${*:3}"
         elif [ "$2" = "beat" ]; then
-            exec poetry run watchgod celery.__main__.main --args -A app.celery_app beat "${@:3}"
+            exec gosu appuser poetry run watchfiles celery.__main__.main --args "-A app.celery_app beat ${*:3}"
         else
-            exec poetry run watchgod celery.__main__.main --args -A app.celery_app "${@:2}"
+            exec gosu appuser poetry run watchfiles celery.__main__.main --args "-A app.celery_app ${*:2}"
         fi
+    ;;
+    test)
+        exec gosu appuser poetry run pytest
     ;;
     *)
         show_help
