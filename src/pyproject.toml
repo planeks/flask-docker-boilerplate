@@ -41,7 +41,7 @@ email-validator = "^2.2.0"
 [tool.poetry.group.dev.dependencies]
 freezegun = "^1.4"
 markdown-urlize = "^0.2"
-pytest = "^7.4"
+pytest = "^9.0"
 ruff = "^0.6.7"
 
 [tool.poetry.group.docs.dependencies]
