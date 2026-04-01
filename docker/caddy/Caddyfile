@@ -1,11 +1,29 @@
 {
+    # Access logging in JSON format for fail2ban
     log {
         output file /var/log/caddy/access.log
         format json
     }
 }
 
+# Default security headers. Flask can override per-response.
+# "header ?" sets the value only if not already present in the upstream response.
+(security_headers) {
+    header {
+        ?X-Content-Type-Options nosniff
+        ?X-Frame-Options DENY
+        ?X-XSS-Protection "1; mode=block"
+        ?Referrer-Policy strict-origin-when-cross-origin
+        ?Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=()"
+        -Server
+    }
+}
+
 {$SITE_DOMAIN} {
+    import security_headers
+    encode zstd gzip
+
     @docs path /docs/*
     handle @docs {
         basic_auth {
@@ -19,6 +37,6 @@
     reverse_proxy /* flask:8000
 }
 
-# www.{$SITE_DOMAIN} {
-#    redir https://{$SITE_DOMAIN}{uri}
-# }
+www.{$SITE_DOMAIN} {
+    redir https://{$SITE_DOMAIN}{uri}
+}
